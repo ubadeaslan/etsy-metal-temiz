@@ -1,0 +1,73 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, python: "3.13" }
+          - { os: macos-latest, python: "3.11" }
+          - { os: macos-15-intel, python: "3.13" }
+          - { os: windows-latest, python: "3.13" }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -q -r requirements-dev.txt
+      - run: python -m pytest -q
+        env:
+          PYTHONUTF8: "1"
+
+  # what a person does: open the folder, start the file, see the panel
+  baslat-mac:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: baslat.command
+        env:
+          METAL_NO_BROWSER: "1"
+        run: |
+          ./baslat.command < /dev/null > panel.log 2>&1 &
+          for i in $(seq 1 120); do
+            curl -fs http://127.0.0.1:8765/api/panel && break
+            sleep 3
+          done
+          cat panel.log
+          for p in / /yeni /odalar /ayarlar; do curl -fs -o /dev/null -w "%{http_code} $p\n" "http://127.0.0.1:8765$p"; done
+
+  baslat-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: baslat.bat
+        shell: pwsh
+        env:
+          METAL_NO_BROWSER: "1"
+        run: |
+          Start-Process cmd -ArgumentList '/c', 'baslat.bat > panel.log 2>&1' -NoNewWindow
+          $ok = $false
+          foreach ($i in 1..120) {
+            try { Invoke-RestMethod http://127.0.0.1:8765/api/panel -TimeoutSec 3; $ok = $true; break } catch { Start-Sleep 3 }
+          }
+          Get-Content panel.log
+          if (-not $ok) { exit 1 }
+          foreach ($p in '/', '/yeni', '/odalar', '/ayarlar') { (Invoke-WebRequest "http://127.0.0.1:8765$p" -UseBasicParsing).StatusCode }

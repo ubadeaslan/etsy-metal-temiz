@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+{% block title %}{{ r.name }}{% endblock %}
+{% block content %}
+{% set keys_order = stages|map(attribute=0)|list %}
+{% set idx = keys_order.index(stage) %}
+{% from "_macros.html" import size_editor %}
+<div class="card-head" style="margin-bottom:0">
+  <form method="post" action="/t/{{ r.id }}/ad" style="flex:1;display:flex;gap:8px;align-items:center">
+    <input type="text" name="name" value="{{ r.name }}" style="font-size:20px;font-weight:600;border-color:transparent;background:transparent;padding-left:0" onfocus="this.style.borderColor=''">
+  </form>
+  <form method="post" action="/t/{{ r.id }}/sku" class="sku-form">
+    <span class="l">SKU</span><input type="text" name="sku" value="{{ r.sku or '' }}" maxlength="32" required><button class="small ghost">Kaydet</button>
+  </form>
+  {% if r.product_type == 'portre' %}
+  <span class="tag">{{ product_types[r.product_type] }}</span>
+  {% else %}
+  <form method="post" action="/t/{{ r.id }}/tip" class="sku-form type-form" data-busy="Ürün tipi değişiyor, kontrol yenileniyor…" title="Saat tipi: göbek + mekanizma deliği ve fotoğraflarda akrep-yelkovan">
+    <span class="l">Tip</span>
+    <select name="product_type" onchange="this.form.querySelector('button').hidden = this.value === '{{ r.product_type }}'">
+      {% for key, label in product_types.items() if key != 'portre' %}<option value="{{ key }}" {{ 'selected' if key == r.product_type }}>{{ label }}</option>{% endfor %}
+    </select>
+    <button class="small" hidden>Değiştir</button>
+  </form>
+  {% endif %}
+  <span class="tag">{{ 'AI' if r.ai_used else 'AI yok' }}</span>
+  <form method="post" action="/t/{{ r.id }}/sil" onsubmit='return confirm({{ ((r.sku or r.name) ~ " silinsin mi? Tasarım klasörü (adaylar, görseller, kit) kalıcı olarak silinir ve SKU boşa çıkar.")|tojson }})'><button class="small ghost danger">Sil</button></form>
+</div>
+<section class="card sizes-card" id="boylar">
+  <div class="card-head"><h2>Boylar</h2><span class="step">kayıtlı: {{ sizes|length }} boy</span></div>
+  <p class="muted" style="margin-top:0">Kayıtlı boylar: <b>{% for d in size_rows %}{{ d.label_w }}{{ ', ' if not loop.last }}{% endfor %}</b>. Size Guide, bilgi kartı, listing ve DXF yalnız kayıtlı boyları kullanır: boy ekleyip sildikten sonra önce kaydet, sonra görselleri oluştur.</p>
+  <form method="post" action="/t/{{ r.id }}/boylar" data-sizes-form>
+    {{ size_editor(sizes, aspect, ocr_ready, ocr_hint) }}
+    <div class="row" style="margin-top:12px;align-items:center;gap:12px"><button class="save-sizes">Boyları kaydet</button><span class="size-dirty warn-text" hidden>Kaydedilmemiş değişiklik var</span></div>
+  </form>
+</section>
+{% if r.product_type == 'portre' %}
+{# ---------------------------------------------------------------- custom portrait: name plate + orders #}
+<section class="card" id="yazi">
+  <div class="card-head"><h2>İsim plakası ve siparişler</h2><span class="step">özel portre</span></div>
+  {% if r.parent %}<p class="muted" style="margin-top:0">Bu bir sipariş: <a href="/t/{{ r.parent.id }}">{{ r.parent.sku }}</a> listing tasarımından açıldı.</p>{% endif %}
+  <div class="grid2">
+    <form method="post" action="/t/{{ r.id }}/yazi" data-busy="İsim plakası yenileniyor…">
+      <label><span class="l">Plakadaki yazı</span><input type="text" name="text" maxlength="60" required value="{{ r.text.content if r.text else '' }}"></label>
+      <small class="block-hint">Yazıyı kod yazar, AI değil: her isim ve Türkçe harf doğru çıkar, para tutmaz. Değiştirince kontrol ve DXF yeni isimle çıkar; görseller için "Görselleri yenile". Küçük boyda uzun isim incelir: uyarı çıkarsa kısalt ya da büyük boy seç.</small>
+      <div style="margin-top:10px"><button class="small">Uygula</button></div>
+    </form>
+    <form method="post" action="/t/{{ r.id }}/siparis" enctype="multipart/form-data" data-busy="Sipariş açılıyor…">
+      <label><span class="l">Sipariş aç: müşterinin istediği isim</span><input type="text" name="text" maxlength="60" required placeholder="ör. İsa ve Esma"></label>
+      <label style="margin-top:8px"><span class="l">Müşterinin fotoğrafı (isteğe bağlı)</span><input type="file" name="file" accept="image/*"></label>
+      <input type="hidden" name="provider" value="gemini"><input type="hidden" name="n" value="3">
+      <small class="block-hint">Fotoğraf yoksa bu portre düzeltmeleriyle kopyalanır, yalnız isim değişir. Fotoğraf varsa ondan 3 yeni portre adayı çizilir (Gemini). Listing tasarımı olduğu gibi kalır; sipariş kendi SKU'suyla açılır ({{ r.sku }}-S1, -S2…).</small>
+      <div style="margin-top:10px"><button class="small">Sipariş aç</button>{% if not keys.gemini %} <small>Fotoğraflı sipariş için Gemini anahtarı gerekir.</small>{% endif %}</div>
+    </form>
+  </div>
+  {% if r.orders %}
+  <h3>Açılan siparişler</h3>
+  <ul class="orders">{% for o in r.orders|reverse %}<li><a href="/t/{{ o.id }}">{{ o.sku }}</a> · {{ o.text }} · {{ o.at.replace('T', ' ') }}{% if o.new_photo %} · yeni fotoğraf{% endif %}</li>{% endfor %}</ul>
+  {% endif %}
+</section>
+{% endif %}
+<nav class="stepper">
+  {% for key, label in stages %}
+  <a href="#{{ 'adaylar' if key == 'aday' else key }}" class="{{ 'now' if loop.index0 == idx else ('done' if loop.index0 < idx else '') }}">{{ loop.index }}. {{ label }}</a>
+  {% endfor %}
+</nav>
+
+{# ---------------------------------------------------------------- 1. candidates #}
+<section class="card" id="adaylar">
+  <div class="card-head"><h2>Adaylar</h2><span class="step">1 · seç</span></div>
+  {% if r.product_type == 'portre' and r.portre %}
+  <div class="portrait-photo">
+    <img src="/f/{{ r.id }}/{{ r.portre.photo }}?{{ r.updated }}" data-zoom="/f/{{ r.id }}/{{ r.portre.photo }}?{{ r.updated }}" alt="">
+    <div>
+      <b>Fotoğraf</b><p class="muted">Adaylar bu fotoğraftan çizilir: dolu silüet, altta çubuk; boşta parça olmaması kuralı prompt'ta.</p>
+      <form method="post" action="/t/{{ r.id }}/foto" enctype="multipart/form-data" class="row" data-busy="Yükleniyor…">
+        <label><input type="file" name="file" accept="image/*" required></label><button class="small ghost">Fotoğrafı değiştir</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+  {% if r.candidates %}
+  <div class="cands">
+    {% for c in r.candidates|reverse %}
+    <div class="cand {{ 'on' if c == r.chosen }}">
+      {% if c == r.chosen %}<span class="badge tag ok">seçili</span>{% endif %}
+      <img src="/f/{{ r.id }}/{{ c }}" data-zoom="/f/{{ r.id }}/{{ c }}" loading="lazy">
+      {% if c != r.chosen %}
+      <form method="post" action="/t/{{ r.id }}/sec"><input type="hidden" name="candidate" value="{{ c }}"><button class="small">Bunu seç</button></form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="muted">Henüz aday yok.</p>
+  {% endif %}
+  <details {{ 'open' if not r.candidates }}>
+    <summary>Yeni aday üret / tarifi değiştir</summary>
+    <form method="post" action="/t/{{ r.id }}/uret" data-busy="Adaylar çiziliyor… (20-90 sn)" style="margin-top:12px">
+      {% if r.product_type == 'portre' %}
+      <label><span class="l">Not (isteğe bağlı)</span><textarea name="brief" rows="2" placeholder="ör. sadece yüzler; gözlükleri koru; tasmayı çizme">{{ r.brief }}</textarea></label>
+      {% else %}
+      <label><span class="l">Tarif</span><textarea name="brief" rows="4" required>{{ r.brief }}</textarea></label>
+      {% endif %}
+      {% if r.product_type == 'tabela' %}
+      <label style="margin-top:10px"><span class="l">Örnek isim</span><input type="text" name="sample_text" value="{{ r.sample_text or '' }}" placeholder="The Johnsons"></label>
+      {% endif %}
+      <div class="row" style="margin-top:12px">
+        <label><span class="l">Sağlayıcı</span>
+          <select name="provider">
+            {% for key, label in providers.items() %}
+            {% set usable = keys[key] and (r.product_type != 'portre' or key == 'gemini') %}
+            {% set pick = (key == 'gemini') if r.product_type == 'portre' else (key == settings.image_provider) %}
+            <option value="{{ key }}" {{ 'selected' if pick }} {{ '' if usable else 'disabled' }}>{{ label }} · {{ settings.models[key].image }}{{ ' (portre için yakında)' if r.product_type == 'portre' and key != 'gemini' }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label style="flex:0 0 110px"><span class="l">Adet</span><select name="n"><option>1</option><option>2</option><option selected>3</option><option>4</option></select></label>
+        <button>Üret</button>
+      </div>
+    </form>
+    <form method="post" action="/t/{{ r.id }}/yukle" enctype="multipart/form-data" class="row" style="margin-top:14px" data-busy="Yükleniyor…">
+      <label><span class="l">…ya da düzelttiğin dosyayı yükle</span><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required></label>
+      <button class="ghost">Yükle ve seç</button>
+    </form>
+  </details>
+</section>
+
+{# ---------------------------------------------------------------- 2. cut check #}
+<section class="card" id="kontrol">
+  <div class="card-head"><h2>Kesilebilirlik kontrolü</h2><span class="step">2 · kontrol</span></div>
+  {% if not r.chosen %}
+  <p class="muted">Önce bir aday seç.</p>
+  {% else %}
+  {% set p = r.check.params if r.check else settings.cut %}
+  <form method="post" action="/t/{{ r.id }}/kontrol" data-busy="Kontrol ediliyor…">
+    <div class="row">
+      <label><span class="l">Genişlik (inç)</span><input type="number" step="0.5" min="4" name="width_in" value="{{ r.check.width_in if r.check else default_width }}"></label>
+      <label><span class="l">En ince köprü (mm)</span><input type="number" step="0.1" min="0.5" name="min_width_mm" value="{{ p.min_width_mm }}"></label>
+      <label><span class="l">En küçük delik (mm)</span><input type="number" step="0.1" min="0.5" name="min_hole_mm" value="{{ p.min_hole_mm }}"></label>
+      <label><span class="l">En dar boşluk (mm)</span><input type="number" step="0.1" min="0.5" name="min_gap_mm" value="{{ p.min_gap_mm }}"></label>
+      <button>Kontrol et</button>
+    </div>
+    <small>En küçük satış boyunda kontrol et: köprüler en ince orada olur. {% if r.product_type == 'saat' %}Saat göbeği ve Ø{{ settings.cut.clock_hole_mm|round(1) }} mm mekanizma deliği merkeze otomatik eklenir.{% endif %}</small>
+    <div class="row" style="margin-top:12px">
+      <label class="check" style="flex:0 0 auto"><input type="checkbox" name="multi_piece" value="1" {{ 'checked' if r.multi_piece and r.multi_piece.allowed }}> Çok parçalı set (parçalar ayrı asılır)</label>
+      <label><input type="text" name="reason" value="{{ r.multi_piece.reason if r.multi_piece else '' }}" placeholder="Not (isteğe bağlı): ör. 3 parçalı dağ seti, her parça ayrı askılı"></label>
+    </div>
+  </form>
+  {% if r.check %}
+  <div class="check-out" style="margin-top:20px">
+    <div>
+      <img src="/f/{{ r.id }}/kontrol.png?{{ r.updated }}" data-zoom="/f/{{ r.id }}/kontrol.png?{{ r.updated }}">
+      <div class="legend">
+        <span><i style="background:#484c52"></i>metal</span><span><i style="background:#e53935"></i>kopan ada / ince köprü</span>
+        <span><i style="background:#fb8c00"></i>ince uç</span><span><i style="background:#1e88e5"></i>küçük delik</span><span><i style="background:#8e24aa"></i>dar boşluk</span>
+      </div>
+    </div>
+    <div>
+      <p style="margin-top:0"><span class="tag {{ 'ok' if r.check.ok else 'err' }}" style="font-size:14px">{{ 'GEÇTİ' if r.check.ok else 'HATA' }}</span></p>
+      <ul class="findings">
+        {% for f in r.check.findings %}<li><span class="tag {{ f.level }}">{{ f.level }}</span><span>{{ f.msg }}</span></li>{% endfor %}
+      </ul>
+      <div class="stats">
+        <div><span>Ölçü</span>{{ (r.check.stats.width_mm / 25.4)|round(1) }} × {{ (r.check.stats.height_mm / 25.4)|round(1) }} in</div>
+        <div><span>Ağırlık (çelik, tahmini)</span>{{ r.check.stats.weight_kg_steel }} kg</div>
+        <div><span>Kesim boyu (tahmini)</span>{{ r.check.stats.cut_length_m }} m</div>
+        <div><span>Delme sayısı</span>{{ r.check.stats.pierces }}</div>
+      </div>
+      <p><a href="/f/{{ r.id }}/tasarim.svg" download>SVG indir (mm ölçülü)</a> ·
+        {% if has_dxf %}<a href="/f/{{ r.id }}/tasarim.dxf" download="{{ r.sku or 'tasarim' }}_{{ r.check.width_in|g }}in.dxf">DXF indir ({{ r.check.width_in|g }}", mm)</a>{% else %}<span class="muted">DXF için kontrolü yeniden çalıştır</span>{% endif %} ·
+        <a href="/f/{{ r.id }}/secilen.png" target="_blank">Temiz PNG</a></p>
+      <small>Kitte her satış boyu için ayrı DXF çıkar (<code>atolye/dxf/</code>).</small>
+    </div>
+  </div>
+
+  {% set fx = r.check.fixes or {} %}
+  <div class="fixes" id="onarim">
+    <div class="fixes-head">
+      <h3>Düzeltmeler</h3>
+      <div class="fixes-actions">
+        <a class="btn small" href="/t/{{ r.id }}/duzenle">Düzenleyicide aç</a>
+        {% if fx.groups %}
+        <form method="post" action="/t/{{ r.id }}/onarim/otomatik" data-busy="Hepsi düzeltiliyor…"><button class="small ghost">Hepsini otomatik düzelt</button></form>
+        {% endif %}
+        {% if edit %}
+        <form method="post" action="/t/{{ r.id }}/onarim/geri" data-busy="Geri alınıyor…"><button class="small ghost" title="{{ edit.versions[-1].note }}">Son düzeltmeyi geri al</button></form>
+        <form method="post" action="/t/{{ r.id }}/onarim/orijinal" data-busy="Orijinale dönülüyor…" onsubmit="return confirm('Bütün düzeltmeler kaldırılsın, tasarım ilk haline dönsün mü?')"><button class="small ghost danger">Orijinale dön</button></form>
+        {% endif %}
+      </div>
+    </div>
+    {% if edit %}
+    <p class="muted fix-state">Düzenlenmiş sürüm kullanılıyor · {{ edit.versions|length }} adım: {% for v in edit.versions %}{{ v.note }}{{ ' → ' if not loop.last }}{% endfor %}</p>
+    {% endif %}
+    {% if mockups_stale %}<p class="fix-state warn-text stale">Listing görselleri tasarımın başka bir halinden. <form method="post" action="/t/{{ r.id }}/mockup/yenile" data-busy="Görseller güncel tasarımla yenileniyor… (30-90 sn)" class="inline"><button class="small">Görselleri yenile</button></form> <small>Aynı odalar, kartlar ve sıra; düzeltmeleri bitirince bas.</small></p>{% endif %}
+    {% if r.check.fixes is not defined %}
+    <p class="muted">Düzeltme seçenekleri için kontrolü bir kez yeniden çalıştır ("Kontrol et").</p>
+    {% elif not fx.groups %}
+    <p class="muted">Düzeltilecek işaret yok. İstersen düzenleyicide elle değişiklik yapabilirsin.</p>
+    {% else %}
+    <p class="muted fix-help">Bir kareye tıklayınca o düzeltme uygulanır, kontrol kendiliğinden yenilenir. Yeşil: eklenen metal, açık kırmızı: çıkarılan. Etiketler (P1, B3…) yukarıdaki kontrol görselinde. Beğenmezsen "Son düzeltmeyi geri al".</p>
+    {% endif %}
+    {% for g in fx.groups %}
+    <details class="fix-group" {{ 'open' if g.level == 'HATA' }}>
+      <summary><span class="tag {{ g.level }}">{{ g.level }}</span> {{ g.title }} ({{ g.count }}){% if g.count > g.cards|length %} <small>· ilk {{ g.cards|length }} tanesi gösteriliyor</small>{% endif %}</summary>
+      <form method="post" action="/t/{{ r.id }}/onarim/otomatik" data-busy="Düzeltiliyor…" class="fix-group-auto">
+        <input type="hidden" name="code" value="{{ g.code }}"><button class="small ghost">Bu gruptakilerin hepsini otomatik düzelt</button>
+      </form>
+      {% for c in g.cards %}
+      <div class="fix-card">
+        <div class="fix-title"><b>{{ c.label }}</b> <span class="muted">{{ c.detail }}</span>
+          <a href="/t/{{ r.id }}/duzenle?y={{ c.ref[0] }}&x={{ c.ref[1] }}">düzenleyicide aç</a></div>
+        <div class="fix-tiles">
+          <figure class="tile"><img src="/f/{{ r.id }}/{{ c.tile }}?{{ r.updated }}" alt="" loading="lazy"><figcaption>Şu an</figcaption></figure>
+          {% for o in c.options %}
+          <form method="post" action="/t/{{ r.id }}/onarim" data-busy="{{ c.label }}: {{ o.label }} uygulanıyor…" class="tile {{ 'auto' if o.key == c.auto }} {{ '' if o.ok else 'off' }}">
+            <input type="hidden" name="code" value="{{ c.code }}"><input type="hidden" name="y" value="{{ c.ref[0] }}">
+            <input type="hidden" name="x" value="{{ c.ref[1] }}"><input type="hidden" name="option" value="{{ o.key }}">
+            {% if o.ok %}
+            <button title="{{ o.label }} uygula"><img src="/f/{{ r.id }}/{{ o.tile }}?{{ r.updated }}" alt="" loading="lazy"></button>
+            {% else %}
+            <button disabled><span class="na">{{ o.note }}</span></button>
+            {% endif %}
+            <figcaption>{{ o.label }}{% if o.key == c.auto %} <span class="tag ok">önerilen</span>{% endif %}{% if o.ok and o.note %} <small>{{ o.note }}</small>{% endif %}</figcaption>
+          </form>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </details>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+
+{# ---------------------------------------------------------------- 3. mockups #}
+<section class="card" id="mockup">
+  <div class="card-head"><h2>Listing görselleri</h2><span class="step">3 · mockup</span></div>
+  {% if not r.check %}
+  <p class="muted">Önce kontrolü çalıştır.</p>
+  {% else %}
+  <form method="post" action="/t/{{ r.id }}/mockup" class="plan" data-plan='{{ plan|tojson }}' data-busy="Görseller hazırlanıyor… (30-90 sn)">
+    <h3 style="margin-top:0">Renk → oda</h3>
+    <p class="muted" style="margin-top:0">Bir renge tıkla, sonra o renk için odaları seç: siyah ve altın 2, gümüş, bronz ve beyaz 1 oda. Seçili odaya tekrar tıklarsan çıkar. Odalar <a href="/odalar">Odalar</a> sayfasından eklenir.</p>
+    <div class="slot-tabs">
+      {% for fin in palette %}
+      <button type="button" class="slot-tab" data-fin="{{ fin }}" data-max="{{ slots[fin] }}"><i class="sw" style="background:linear-gradient(135deg, {{ finishes[fin].tones[2] }}, {{ finishes[fin].tones[1] }})"></i>{{ finishes[fin].tr }} <b class="cnt">{{ plan[fin]|length }}/{{ slots[fin] }}</b></button>
+      <input type="hidden" name="oda_{{ fin }}" value="{{ plan[fin]|join(',') }}">
+      {% endfor %}
+    </div>
+    {% if rooms %}
+    <div class="room-pick plan-rooms">
+      {% for room in rooms %}
+      <button type="button" class="room-opt" data-room="{{ room.id }}" title="{{ room.name }}"><img src="/oda/{{ room.file }}" loading="lazy"><span class="marks"></span></button>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted">Renk görselleri oda fotoğrafı ister: önce <a href="/odalar">Odalar</a> sayfasından birkaç oda ekle. Kartlar oda olmadan da çıkar.</p>{% endif %}
+    <h3>Kartlar <small>(renk görsellerinden sonra bu sırayla)</small></h3>
+    <div class="chips">
+      <label class="chip"><input type="checkbox" name="card" value="renkler" checked><span>Available Finishes</span></label>
+      <label class="chip"><input type="checkbox" name="card" value="boyut" checked><span>Size Guide ({{ sizes|length }} boy)</span></label>
+      <label class="chip"><input type="checkbox" name="card" value="detay" checked><span>Yakın plan</span></label>
+      <label class="chip"><input type="checkbox" name="card" value="bilgi" checked><span>Bilgi kartı</span></label>
+      {% for key, label in ready_cards.items() %}
+      <label class="chip"><input type="checkbox" name="card" value="{{ key }}" checked><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    {% if not ready_cards %}<small>Kendi hazır kartlarını (montaj, kargo, gümrük) <a href="/ayarlar#kartlar">Ayarlar</a>'dan ekleyebilirsin.</small>{% endif %}
+    <div class="row" style="margin-top:18px;align-items:center"><button>Oluştur</button><small class="plan-note"></small></div>
+  </form>
+  {% if r.mockups %}
+  {% set kinds = {'finishes': 'Available Finishes', 'sizes': 'Size Guide', 'detail': 'Yakın plan', 'info': 'Bilgi kartı', 'install': 'Montaj kartı', 'shipping': 'Kargo kartı', 'customs': 'Gümrük kartı'} %}
+  <h3>Sonuç — Etsy'de bu sırayla yükle (ilki kapak)</h3>
+  {% if mockups_stale %}<p class="warn-text stale">Bu görseller tasarımın başka bir halinden (düzeltmelerden önce ya da sonra). <form method="post" action="/t/{{ r.id }}/mockup/yenile" data-busy="Görseller güncel tasarımla yenileniyor… (30-90 sn)" class="inline"><button class="small">Görselleri yenile</button></form> <small>Aynı odalar, kartlar ve sıra.</small></p>{% endif %}
+  <div class="gallery">
+    {% for m in r.mockups %}
+    <div class="gitem">
+      <img src="/f/{{ r.id }}/{{ m.file }}?{{ r.updated }}" data-zoom="/f/{{ r.id }}/{{ m.file }}?{{ r.updated }}" loading="lazy">
+      <div class="bar">
+        <span>{{ loop.index }} · {{ finishes[m.finish].tr if m.finish in finishes else kinds.get(m.kind, m.kind) }}{{ ' · kapak' if loop.first }}</span>
+        <span>
+          <form method="post" action="/t/{{ r.id }}/mockup/sira" data-keep-scroll><input type="hidden" name="file" value="{{ m.file }}"><input type="hidden" name="direction" value="-1"><button class="small ghost" {{ 'disabled' if loop.first }}>←</button></form>
+          <form method="post" action="/t/{{ r.id }}/mockup/sira" data-keep-scroll><input type="hidden" name="file" value="{{ m.file }}"><input type="hidden" name="direction" value="1"><button class="small ghost" {{ 'disabled' if loop.last }}>→</button></form>
+          <form method="post" action="/t/{{ r.id }}/mockup/sil" data-keep-scroll><input type="hidden" name="file" value="{{ m.file }}"><button class="small ghost danger" title="Bu görseli sil">Sil</button></form>
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+
+{# ---------------------------------------------------------------- 4. listing #}
+<section class="card" id="listing">
+  <div class="card-head"><h2>Listing metni</h2><span class="step">4 · listing</span></div>
+  {% if not r.check %}
+  <p class="muted">Önce kontrolü çalıştır.</p>
+  {% else %}
+  <form method="post" action="/t/{{ r.id }}/listing" data-busy="Listing yazılıyor… (10-40 sn)" class="row">
+    <label><span class="l">Hedef arama ifadeleri (isteğe bağlı)</span><input type="text" name="keywords" value="{{ r.listing.keywords if r.listing else '' }}" placeholder="ör. mountain metal wall art, cabin decor — Marketplace Insights'tan"></label>
+    <label style="flex:0 0 220px"><span class="l">Sağlayıcı</span>
+      <select name="provider">
+        {% for key, label in providers.items() %}
+        <option value="{{ key }}" {{ 'selected' if key == settings.text_provider }} {{ '' if keys[key] else 'disabled' }}>{{ label }} · {{ settings.models[key].text }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button {{ '' if keys.openai or keys.gemini else 'disabled' }}>{{ 'Yeniden yaz' if r.listing else 'AI ile yaz' }}</button>
+  </form>
+  <form method="post" action="/t/{{ r.id }}/listing/kaydet" style="margin-top:18px">
+    <label><span class="l">Başlık <span class="counter" id="title-n"></span></span><input type="text" id="title" name="title" data-count="140" value="{{ r.listing.title if r.listing else '' }}"></label>
+    <label style="margin-top:12px"><span class="l">13 tag (virgülle) <span class="counter" id="tags-n"></span></span><textarea id="tags" name="tags" rows="2" data-count-tags="13">{{ r.listing.tags|join(', ') if r.listing else '' }}</textarea></label>
+    <label style="margin-top:12px"><span class="l">Açıklama <span class="counter" id="desc-n"></span></span><textarea id="desc" name="description" rows="14" data-count="10000">{{ r.listing.description if r.listing else '' }}</textarea></label>
+    <div style="margin-top:12px"><button class="ghost">Kaydet ve preflight</button></div>
+  </form>
+  {% if r.preflight is not none and r.listing %}
+  <h3>Preflight</h3>
+  {% if r.preflight %}
+  <ul class="findings">{% for f in r.preflight %}<li><span class="tag {{ f.level }}">{{ f.level }}</span><span><code>{{ f.code }}</code> {{ f.msg }}</span></li>{% endfor %}</ul>
+  {% else %}<p><span class="tag ok">temiz</span></p>{% endif %}
+  {% endif %}
+  {% endif %}
+</section>
+
+{# ---------------------------------------------------------------- 5. kit #}
+<section class="card" id="kit">
+  <div class="card-head"><h2>Yükleme kiti</h2><span class="step">5 · kit</span></div>
+  <form method="post" action="/t/{{ r.id }}/kit" data-busy="Kit hazırlanıyor…">
+    <button {{ 'disabled' if pf_errors or not r.mockups or mockups_stale }}>Kiti çıkar</button>
+    {% if pf_errors %}<small style="margin-left:10px">Kit için: kontrol + görseller + listing + preflight'ta HATA yok.</small>
+    {% elif mockups_stale %}<small style="margin-left:10px">Tasarım düzeltildi: önce "Görselleri yenile".</small>{% endif %}
+  </form>
+  {% if r.kit %}
+  <p style="margin-top:16px"><span class="tag ok">hazır</span> <code>{{ r.kit.path }}</code></p>
+  <div class="row" style="margin-bottom:16px">
+    <form method="post" action="/t/{{ r.id }}/klasor"><input type="hidden" name="sub" value="kit"><button class="ghost small">Kit klasörünü aç</button></form>
+    <form method="post" action="/t/{{ r.id }}/klasor"><input type="hidden" name="sub" value="kit/atolye"><button class="ghost small">Atölye dosyalarını aç</button></form>
+  </div>
+  <h3>Kopyala-yapıştır</h3>
+  <div class="copy-row"><pre id="k-title">{{ r.listing.title }}</pre><button class="small ghost" data-copy="k-title">Kopyala</button></div>
+  <div class="copy-row"><pre id="k-tags">{{ r.listing.tags|join(', ') }}</pre><button class="small ghost" data-copy="k-tags">Kopyala</button></div>
+  <div class="copy-row"><pre id="k-desc">{{ r.listing.description }}</pre><button class="small ghost" data-copy="k-desc">Kopyala</button></div>
+  <h3>Etsy formunda senin işaretleyeceklerin</h3>
+  <ul style="margin:0;padding-left:18px;line-height:1.7">
+    <li>Fotoğraflar: <b>kit/gorseller</b> klasöründeki sırayla (ilk görsel kapak).</li>
+    <li>"How was it made?" → kesimi atölye yaptığı için <b>üretim ortağını</b> seç (Shop Manager → Settings → Production partners).</li>
+    {% if r.ai_used %}<li>AI ile üretildiği için formdaki <b>AI</b> sorusunu işaretle.</li>{% endif %}
+    <li>SKU: <b>{{ r.sku }}</b></li>
+    <li>Varyasyonlar: <b>Finish</b> ({% for f in palette %}{{ finishes[f].label }}{{ ', ' if not loop.last }}{% endfor %}) × <b>Size</b> — boy adları <code>listing.txt</code> içinde hazır; fiyatları sen gir:
+      <div class="copy-row" style="margin-top:6px"><pre id="k-sizes">{% for d in size_rows %}{{ d.variation }}{{ '\n' if not loop.last }}{% endfor %}</pre><button class="small ghost" data-copy="k-sizes">Kopyala</button></div></li>
+    {% if r.product_type in ('tabela', 'portre') %}<li>Kişiselleştirmeyi aç; talimat: "{{ settings.facts.personalization }}"{% if r.product_type == 'portre' %} Fotoğrafı Etsy mesajıyla iste.{% endif %}</li>{% endif %}
+    <li>Kargo: tahmini çelik ağırlığı {{ r.check.stats.weight_kg_steel }} kg ({{ (r.check.width_in)|round(1) }}" boyda) + ambalaj.</li>
+    <li>Yayın: Etsy panelinde <b>sen</b> yayınlarsın.</li>
+  </ul>
+  {% endif %}
+</section>
+
+<section class="card">
+  <details>
+    <summary>Üretim kaydı ({{ r.events|length }} olay)</summary>
+    <ol class="events">{% for e in r.events|reverse %}<li>{{ e.at.replace('T', ' ') }} — {{ e.text }}</li>{% endfor %}</ol>
+    <p style="margin-bottom:0"><a href="/f/{{ r.id }}/kayit.json" target="_blank">kayit.json</a> · <code>{{ r.id }}</code></p>
+  </details>
+</section>
+{% endblock %}

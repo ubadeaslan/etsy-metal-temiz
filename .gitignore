@@ -1,0 +1,15 @@
+# kişisel veriler: tasarımlar, odalar, kartlar, ayarlar, harcama — hiçbir zaman git'e girmez
+calisma/
+# API anahtarları
+.env
+.env.*
+!.env.example
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

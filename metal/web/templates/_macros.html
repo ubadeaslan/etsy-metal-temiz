@@ -1,0 +1,31 @@
+{# Size table: width in inches or cm (the other fills in), height from the design's proportions (aspect =
+   height/width, empty before the cut check), import from pasted text or a screenshot. Posts sizes_in (many). #}
+{% macro size_editor(sizes, aspect=None, ocr_ready=False, ocr_hint='') %}
+<div class="size-editor" data-aspect="{{ aspect or '' }}">
+  <table class="size-table">
+    <thead><tr><th>Genişlik (inç)</th><th>Genişlik (cm)</th><th>Yükseklik{{ ' (tasarımdan)' if aspect }}</th><th></th></tr></thead>
+    <tbody>
+      {% for s in sizes %}
+      <tr>
+        <td><input type="number" name="sizes_in" step="any" min="1" max="200" value="{{ s|round(2)|g }}"></td>
+        <td><input type="number" class="cm" step="any" min="2" max="508"></td>
+        <td class="h"></td>
+        <td><button type="button" class="small ghost del" title="Bu boyu sil">×</button></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <button type="button" class="small ghost add">+ Boy ekle</button>
+  <details class="size-import">
+    <summary>Listeden ya da ekran görüntüsünden al</summary>
+    <div class="paste-zone" tabindex="0">
+      <b>Ekran görüntüsü:</b> buraya tıkla, sonra Ctrl+V (Mac: ⌘V) ile yapıştır — ya da <label class="linkish">dosya seç<input type="file" accept="image/*" hidden></label>
+      {% if not ocr_ready %}<div class="err-text">Tesseract bulunamadı: yalnız metin yapıştırma çalışır. Kurulum: {{ ocr_hint }}</div>{% endif %}
+    </div>
+    <textarea class="paste-text" rows="3" placeholder='…ya da metin yapıştır, her satır bir boy: 30"x13"/76x34cm · 76 cm · 30 in'></textarea>
+    <button type="button" class="small ghost parse">Metinden ayıkla</button>
+    <div class="import-out"></div>
+  </details>
+  <small class="size-hint">Yalnız genişlik alınır; yükseklik tasarımın oranından hesaplanır. Okunan boylar tabloya gelir, kaydetmeden önce kontrol et.</small>
+</div>
+{% endmacro %}

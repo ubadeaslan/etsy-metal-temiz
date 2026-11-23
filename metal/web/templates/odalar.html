@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Odalar{% endblock %}
+{% block content %}
+<h1>Odalar</h1>
+<p class="lead">Mockup'lar için oda fotoğrafları. Tasarım, fotoğraf üzerinde çizdiğin kutunun içine yerleşir: fare ile sürükleyerek duvardaki boş alanı işaretle. Listing görselleri kare olduğu için karartılmış kenarlar kırpılır; kare, kutunun ortasına göre kayar.</p>
+
+<div class="grid2">
+  <form class="card" method="post" action="/odalar/uret" data-busy="Oda fotoğrafı üretiliyor… (20-60 sn)">
+    <div class="card-head"><h2>AI ile oda üret</h2></div>
+    <div class="row">
+      <label><span class="l">Oda</span>
+        <select name="preset">
+          {% for key, text in presets.items() %}<option value="{{ key }}">{{ key }} — {{ text }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label><span class="l">Duvar rengi notu (İngilizce)</span><input type="text" name="wall_note" placeholder="ör. painted in soft sage green"></label>
+      <label style="flex:0 0 200px"><span class="l">Sağlayıcı</span>
+        <select name="provider">
+          {% for key, label in providers.items() %}<option value="{{ key }}" {{ 'selected' if key == settings.image_provider }} {{ '' if keys[key] else 'disabled' }}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <label style="margin-top:12px"><span class="l">Ad</span><input type="text" name="name" placeholder="ör. salon-adacayi"></label>
+    <div style="margin-top:16px"><button {{ '' if keys.openai or keys.gemini else 'disabled' }}>Üret (~1 görsel)</button></div>
+  </form>
+  <form class="card" method="post" action="/odalar/yukle" enctype="multipart/form-data" data-busy="Yükleniyor…">
+    <div class="card-head"><h2>Fotoğraf yükle (çoklu)</h2></div>
+    <p class="muted" style="margin-top:0">ChatGPT'de çizdirdiğin ya da kendi çektiğin odalar. Birden çok dosyayı aynı anda seçebilirsin. Duvara karşıdan, göz hizasında, boş duvarı geniş görüntüler en iyi sonucu verir.</p>
+    <label><span class="l">Fotoğraflar</span><input type="file" name="files" accept="image/png,image/jpeg,image/webp" multiple required></label>
+    <label style="margin-top:12px"><span class="l">Ad (isteğe bağlı; çoklu yüklemede sonuna numara eklenir)</span><input type="text" name="name"></label>
+    <div style="margin-top:16px"><button>Yükle</button></div>
+  </form>
+</div>
+
+{% if rooms %}
+<div class="rooms">
+  {% for room in rooms %}
+  <div class="room">
+    <div class="stage" data-room="{{ room.id }}" data-box='{{ room.box|tojson }}' data-size='{{ room.size|tojson }}'>
+      <img src="/oda/{{ room.file }}"><div class="crop a"></div><div class="crop b"></div><div class="box"></div>
+    </div>
+    <div class="bar">
+      <span><b>{{ room.name }}</b> · <span class="tag">{{ 'AI' if room.source == 'ai' else 'kendi' }}</span> <span class="status muted"></span></span>
+      <span class="actions"><button type="button" class="small ghost reset-box">Sıfırla</button>
+      <form method="post" action="/odalar/{{ room.id }}/sil" onsubmit="return confirm('Oda silinsin mi?')"><button class="small ghost">Sil</button></form></span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card empty"><p>Henüz oda yok. Renk görselleri (siyah, altın…) bir oda fotoğrafına asılır: yukarıdan üret ya da yükle.</p></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Ayarlar{% endblock %}
+{% block content %}
+<h1>Ayarlar</h1>
+<p class="lead">Anahtarlar yalnız bu bilgisayardaki <code>.env</code> dosyasında durur. Tasarımların, odaların ve ayarların da yalnız bu bilgisayardaki <code>calisma</code> klasöründedir. Gerçek bütçe alarmını sağlayıcı konsolunda da kur.</p>
+
+<form class="card" method="post" action="/ayarlar/anahtar">
+  <div class="card-head"><h2>API anahtarları</h2></div>
+  <div class="grid2">
+    {% for key, label in providers.items() %}
+    <div>
+      <label><span class="l">{{ label }} {% if masked[key] %}<span class="tag ok">kayıtlı: {{ masked[key] }}</span>{% else %}<span class="tag err">yok</span>{% endif %}</span>
+        <input type="password" name="{{ key }}_key" autocomplete="off" placeholder="{{ 'Değiştirmek için yeni anahtarı yapıştır' if masked[key] else 'Anahtarı yapıştır' }}">
+      </label>
+      <div class="row" style="margin-top:8px;align-items:center">
+        <button type="button" class="small ghost" data-models="{{ key }}" {{ '' if masked[key] else 'disabled' }}>Bağlantıyı test et ve modelleri getir</button>
+        <small id="models-{{ key }}-status"></small>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div style="margin-top:16px"><button>Anahtarları kaydet</button></div>
+</form>
+
+<form method="post" action="/ayarlar">
+  <section class="card">
+    <div class="card-head"><h2>Modeller ve bütçe</h2></div>
+    <div class="row">
+      <label><span class="l">Varsayılan görsel sağlayıcı</span>
+        <select name="image_provider">{% for key, label in providers.items() %}<option value="{{ key }}" {{ 'selected' if key == settings.image_provider }}>{{ label }}</option>{% endfor %}</select>
+      </label>
+      <label><span class="l">Varsayılan metin sağlayıcı</span>
+        <select name="text_provider">{% for key, label in providers.items() %}<option value="{{ key }}" {{ 'selected' if key == settings.text_provider }}>{{ label }}</option>{% endfor %}</select>
+      </label>
+      <label><span class="l">OpenAI görsel kalitesi</span>
+        <select name="openai_image_quality">{% for q in ['low', 'medium', 'high'] %}<option {{ 'selected' if q == settings.openai_image_quality }}>{{ q }}</option>{% endfor %}</select>
+      </label>
+      <label><span class="l">Aylık AI tavanı ($)</span><input type="number" step="1" min="1" name="monthly_budget_usd" value="{{ settings.monthly_budget_usd }}"></label>
+    </div>
+    {% for key, label in providers.items() %}
+    <div class="row" style="margin-top:12px">
+      <label><span class="l">{{ label }} görsel modeli</span><input type="text" list="dl-{{ key }}-image" name="model_{{ key }}_image" value="{{ settings.models[key].image }}"></label>
+      <label><span class="l">{{ label }} metin modeli</span><input type="text" list="dl-{{ key }}-text" name="model_{{ key }}_text" value="{{ settings.models[key].text }}"></label>
+      <datalist id="dl-{{ key }}-image"></datalist><datalist id="dl-{{ key }}-text"></datalist>
+    </div>
+    {% endfor %}
+    <small>Model adları sık değişir: "modelleri getir" ile güncel listeyi çek, alana tıklayıp seç.</small>
+  </section>
+
+  <section class="card">
+    <div class="card-head"><h2>Kesim eşikleri ve satış seçenekleri</h2><small>Kesimi yapan atölyeye sorup güncelle</small></div>
+    <div class="row">
+      <label><span class="l">En ince köprü (mm)</span><input type="number" step="0.1" name="min_width_mm" value="{{ settings.cut.min_width_mm }}"></label>
+      <label><span class="l">En küçük delik (mm)</span><input type="number" step="0.1" name="min_hole_mm" value="{{ settings.cut.min_hole_mm }}"></label>
+      <label><span class="l">En dar boşluk (mm)</span><input type="number" step="0.1" name="min_gap_mm" value="{{ settings.cut.min_gap_mm }}"></label>
+      <label><span class="l">Saat mekanizma deliği (mm)</span><input type="number" step="0.5" name="clock_hole_mm" value="{{ settings.cut.clock_hole_mm }}"></label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label><span class="l">Yeni tasarımın başlangıç boyları (genişlik, inç, virgülle)</span><input type="text" name="sizes_in" value="{{ settings.sizes_in|map('g')|join(', ') }}"></label>
+      <label style="flex:0 0 150px"><span class="l">SKU ön eki</span><input type="text" name="sku_prefix" maxlength="12" value="{{ settings.sku_prefix }}"></label>
+      <label style="flex:0 0 150px"><span class="l">İlk SKU numarası</span><input type="number" step="1" min="1" name="sku_start" value="{{ settings.sku_start }}"></label>
+    </div>
+    <small>Her tasarım kendi boylarını saklar; buradaki liste yalnız yeni tasarımın başlangıcıdır. Renkler sabit: {% for f in palette %}{{ finishes[f].tr }}{{ ', ' if not loop.last }}{% endfor %}.</small>
+  </section>
+
+  <section class="card" id="gercekler">
+    <div class="card-head"><h2>Ürün gerçekleri</h2></div>
+    <p class="muted" style="margin-top:0">Listing metni ve bilgi kartı bu bilgileri kullanır. İngilizce yaz; bilmediğin alanı boş bırak — boş alan listing'de hiç geçmez.</p>
+    {% set f = settings.facts %}
+    <div class="row" style="margin-bottom:12px">
+      <label><span class="l">Mağaza adı (açıklamanın sonunda teşekkür + imza)</span><input type="text" name="shop_name" value="{{ settings.shop.name }}" placeholder="ör. My Metal Studio"></label>
+      <label><span class="l">Mağaza sloganı</span><input type="text" name="shop_slogan" value="{{ settings.shop.slogan }}" placeholder="ör. Metal art for every wall"></label>
+      <label><span class="l">Mağaza cümlesi (teşekkür bölümünde)</span><input type="text" name="shop_story" value="{{ settings.shop.story }}" placeholder="boş bırakılabilir"></label>
+    </div>
+    <div class="row">
+      <label><span class="l">Malzeme</span><input type="text" name="fact_material" value="{{ f.material }}" placeholder="ör. steel"></label>
+      <label><span class="l">Sac kalınlığı (mm)</span><input type="number" step="0.1" name="fact_thickness_mm" value="{{ f.thickness_mm }}"></label>
+      <label><span class="l">Kaplama</span><input type="text" name="fact_coating" value="{{ f.coating }}" placeholder="ör. powder coated"></label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label><span class="l">Askı / montaj</span><input type="text" name="fact_mounting" value="{{ f.mounting }}" placeholder="ör. Pre-drilled holes; screws and anchors included"></label>
+      <label><span class="l">Kullanım</span><input type="text" name="fact_indoor_outdoor" value="{{ f.indoor_outdoor }}" placeholder="ör. indoor"></label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label><span class="l">Saat mekanizması</span><input type="text" name="fact_clock_movement" value="{{ f.clock_movement }}" placeholder="ör. Silent quartz movement included (1 AA battery, not included)"></label>
+      <label class="check" style="flex:0 0 auto"><input type="checkbox" name="fact_clock_hands_included" {{ 'checked' if f.clock_hands_included }}> Akrep-yelkovan dahil</label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label><span class="l">Kişiselleştirme talimatı (tabela)</span><input type="text" name="fact_personalization" value="{{ f.personalization }}"></label>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <label><span class="l">Hazırlık süresi</span><input type="text" name="fact_processing_time" value="{{ f.processing_time }}" placeholder="ör. Made to order in 3-5 business days"></label>
+      <label><span class="l">Gönderim yeri</span><input type="text" name="fact_ships_from" value="{{ f.ships_from }}" placeholder="ör. United States"></label>
+      <label><span class="l">Bakım</span><input type="text" name="fact_care" value="{{ f.care }}" placeholder="ör. Wipe with a soft dry cloth"></label>
+    </div>
+  </section>
+  <section class="card">
+    <div class="card-head"><h2>Açıklama stili örneği</h2><small>isteğe bağlı</small></div>
+    <p class="muted" style="margin-top:0">Beğendiğin kendi listing açıklamanı (İngilizce) yapıştır: AI yeni açıklamaları bu tonda ve uzunlukta yazar, kelimelerini kopyalamaz. Boşsa programın örneği kullanılır.</p>
+    <textarea name="style_example" rows="6">{{ settings.style_example }}</textarea>
+  </section>
+  <div style="margin-bottom:22px"><button>Ayarları kaydet</button></div>
+</form>
+
+<section class="card" id="kartlar">
+  <div class="card-head"><h2>Hazır kartlarım</h2><small>isteğe bağlı</small></div>
+  <p class="muted" style="margin-top:0">Her listing'in sonuna eklenecek kendi görsellerin (ör. montaj anlatımı, kargo, gümrük). Yüklediklerin tasarım sayfasındaki kart listesinde çıkar. Kare görsel en iyisi; üzerindeki söz (kargo, gümrük) mağazanın sözüdür, yalnız tuttuğun sözü yükle.</p>
+  <div class="row">
+    {% for key, label in card_slots.items() %}
+    <div style="flex:1 1 200px">
+      <span class="l">{{ label }}</span>
+      {% if key in card_v %}<img src="/kart/{{ key }}?{{ card_v[key] }}" alt="{{ label }}" style="width:140px;border-radius:10px;display:block;margin:6px 0">{% endif %}
+      <form method="post" action="/ayarlar/kart/{{ key }}" enctype="multipart/form-data" data-busy="Yükleniyor…">
+        <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required>
+        <button class="small ghost" style="margin-top:8px">{{ 'Değiştir' if key in card_v else 'Yükle' }}</button>
+      </form>
+      {% if key in card_v %}<form method="post" action="/ayarlar/kart/{{ key }}/sil" onsubmit="return confirm('Kart silinsin mi?')"><button class="small ghost danger" style="margin-top:6px">Sil</button></form>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card" id="harcama">
+  <div class="card-head"><h2>Bu ayın AI harcaması (tahmini)</h2><b>${{ '%.2f'|format(spent) }} / ${{ '%.0f'|format(budget) }}</b></div>
+  {% if breakdown %}
+  <table class="kv">{% for k, v in breakdown.items() %}<tr><td>{{ k }}</td><td>{{ v.calls }} çağrı</td><td>${{ '%.2f'|format(v.cost_usd) }}</td></tr>{% endfor %}</table>
+  {% else %}<p class="muted" style="margin:0">Bu ay henüz çağrı yok.</p>{% endif %}
+  <small>Tahminler bilerek yüksek tutulur; gerçek tutar sağlayıcı konsolundadır.</small>
+</section>
+{% endblock %}

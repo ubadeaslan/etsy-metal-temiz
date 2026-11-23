@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Etsy Metal{% endblock %} · Etsy Metal</title>
+<link rel="stylesheet" href="/static/app.css?v={{ asset_v('app.css') }}">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><span class="mark"></span>Etsy Metal</a>
+  <nav>
+    <a href="/" class="{{ 'on' if request.url.path == '/' }}">Tasarımlar</a>
+    <a href="/yeni" class="{{ 'on' if request.url.path == '/yeni' }}">Yeni tasarım</a>
+    <a href="/odalar" class="{{ 'on' if request.url.path == '/odalar' }}">Odalar</a>
+    <a href="/ayarlar" class="{{ 'on' if request.url.path == '/ayarlar' }}">Ayarlar</a>
+  </nav>
+  <a class="spend {{ 'warn' if spent > budget * 0.8 }}" href="/ayarlar#harcama" title="Bu ayki tahmini AI harcaması / aylık tavan">
+    Bu ay ~${{ '%.2f'|format(spent) }} <span>/ ${{ '%.0f'|format(budget) }}</span>
+  </a>
+</header>
+{% if not keys.openai and not keys.gemini %}
+<div class="banner info">AI anahtarı henüz yok. <a href="/ayarlar">Ayarlar</a>'dan OpenAI ya da Gemini anahtarını ekle. O zamana kadar <a href="/yeni#yukle">kendi tasarımını yükleyip</a> kontrol, mockup ve kit adımlarını kullanabilirsin.</div>
+{% endif %}
+{% if ok %}<div class="banner ok">{{ ok }}</div>{% endif %}
+{% if err %}<div class="banner err">{{ err }}</div>{% endif %}
+<main class="{% block main_class %}{% endblock %}">{% block content %}{% endblock %}</main>
+<div id="busy" hidden><div class="busy-box"><div class="spinner"></div><p id="busy-text">Çalışıyor…</p><small>Sayfayı kapatma.</small></div></div>
+<script src="/static/app.js?v={{ asset_v('app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

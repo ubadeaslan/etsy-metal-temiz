@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Düzenle · {{ r.name }}{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+<div class="ed" id="editor" data-cfg='{{ cfg|tojson }}'>
+  <aside class="ed-tools">
+    <h3>Araçlar</h3>
+    <button type="button" class="tool" data-tool="tasi" title="Kopan bir parçaya tıkla ve sürükle. Ok tuşları 1 mm kaydırır.">✋ Taşı <kbd>V</kbd></button>
+    <button type="button" class="tool" data-tool="sec" title="Bir bölgeyi kementle çevir; sürükleyip taşı ya da Delete ile sil.">⬚ Seç <kbd>L</kbd></button>
+    <button type="button" class="tool" data-tool="firca" title="Metal ekle">🖌 Fırça <kbd>B</kbd></button>
+    <button type="button" class="tool" data-tool="silgi" title="Metal çıkar">⌫ Silgi <kbd>E</kbd></button>
+    <button type="button" class="tool" data-tool="kopru" title="İki noktaya tıkla: aralarına düz bir köprü">╱ Köprü <kbd>K</kbd></button>
+    <label><span class="l">Kalınlık (mm)</span><input type="number" class="size" step="0.5" min="0.5"></label>
+    <p class="hint size-hint"></p>
+    <div class="ed-row">
+      <button type="button" class="ghost small undo" title="Geri al (Ctrl+Z, Mac: ⌘Z)">↶ Geri</button>
+      <button type="button" class="ghost small redo" title="İleri al (Ctrl+Y, Mac: ⌘⇧Z)">↷ İleri</button>
+    </div>
+    <div class="ed-row">
+      <button type="button" class="ghost small fit" title="Tamamını göster (F)">Sığdır</button>
+      <button type="button" class="ghost small before" title="Basılı tut: düzenlemeden önceki hal (O)">Önce</button>
+    </div>
+    <label class="check" style="margin-top:12px"><input type="checkbox" class="show-problems" checked> Sorunları göster</label>
+    <p class="hint">Yakınlaştır: fare tekerleği. Kaydır: sağ tık ya da boşluk tuşu basılıyken sürükle. Seçimi bırak: Enter, iptal: Esc.</p>
+  </aside>
+
+  <div class="ed-stage">
+    <canvas class="view"></canvas>
+    <div class="ed-hud"><span class="zoom">%100</span><span class="pos"></span><span class="scale"></span></div>
+    <div class="ed-msg"></div>
+  </div>
+
+  <aside class="ed-side">
+    <h3>Kontrol</h3>
+    <div class="status">Yükleniyor…</div>
+    <ul class="counts"></ul>
+    <div class="marks"></div>
+    <ul class="findings ed-findings"></ul>
+    {% if r.product_type == 'saat' %}
+    <p class="hint" style="font-size:12px;color:var(--muted)">Kesikli daire: saat göbeği ve Ø{{ settings.cut.clock_hole_mm|round(1) }} mm mekanizma deliği. Kontrolde kendiliğinden eklenir, içini düzenlemek gerekmez.</p>
+    {% endif %}
+    <div class="save">
+      <button type="button" class="save-btn">Kaydet ve kontrol et</button>
+      <a class="btn ghost" href="/t/{{ r.id }}#onarim">Vazgeç</a>
+    </div>
+    <p class="hint" style="font-size:12px;color:var(--muted);margin-top:12px">Kaydedince yeni bir düzeltme adımı olur. Tasarım sayfasından "Son düzeltmeyi geri al" ya da "Orijinale dön" ile geri dönebilirsin.
+      {% if edit %}Şu an {{ edit.versions|length }} adımlık düzenlenmiş sürümdesin.{% endif %}</p>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}<script src="/static/editor.js?v={{ asset_v('editor.js') }}"></script>{% endblock %}

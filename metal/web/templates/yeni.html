@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Yeni tasarım{% endblock %}
+{% block content %}
+{% from "_macros.html" import size_editor %}
+<h1>Yeni tasarım</h1>
+<p class="lead">Tarifini yaz, AI kesime uygun siyah-beyaz adaylar çizsin. Kesim kuralları (tek parça, kalın köprü, kenar boşluğu) prompt'a otomatik eklenir.</p>
+
+<div class="grid2">
+  <form class="card" method="post" action="/yeni" data-busy="Adaylar çiziliyor… (20-90 sn)">
+    <div class="card-head"><h2>AI ile tasarla</h2><span class="step">önerilen</span></div>
+    <label><span class="l">Ürün tipi <small>(seç: saat tipi göbek + mekanizma deliği ve akrep-yelkovan ekler)</small></span></label>
+    <div class="chips" style="margin-bottom:16px">
+      {% for key, label in product_types.items() if key != 'portre' %}
+      <label class="chip"><input type="radio" name="product_type" value="{{ key }}" required onchange="document.getElementById('sample-wrap').hidden = this.value !== 'tabela'"><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    <label><span class="l">Tarif</span>
+      <textarea name="brief" required rows="5" placeholder="Örnek: Akışkan dalgalardan oluşan soyut modern bir duvar saati. Rakam yok, saat başlarında 12 kısa kalın çizgi. Minimal, dengeli boşluklar."></textarea>
+    </label>
+    <small>İpucu: motif + stil + kompozisyon yaz. Türkçe yazabilirsin.</small>
+    <div id="sample-wrap" hidden style="margin-top:12px">
+      <label><span class="l">Örnek isim (tabela için)</span><input type="text" name="sample_text" placeholder="The Johnsons"></label>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <label><span class="l">Sağlayıcı</span>
+        <select name="provider">
+          {% for key, label in providers.items() %}
+          <option value="{{ key }}" {{ 'selected' if key == settings.image_provider }} {{ '' if keys[key] else 'disabled' }}>{{ label }} · {{ settings.models[key].image }}{{ '' if keys[key] else ' (anahtar yok)' }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label style="flex:0 0 120px"><span class="l">Aday sayısı</span>
+        <select name="n"><option>1</option><option>2</option><option selected>3</option><option>4</option></select>
+      </label>
+    </div>
+    <label style="margin-top:14px"><span class="l">Tasarım adı (isteğe bağlı)</span><input type="text" name="name" placeholder="Boş bırakırsan tariften alınır"></label>
+    <h3>Satış boyları</h3>
+    {{ size_editor(settings.sizes_in, None, ocr_ready, ocr_hint) }}
+    <div style="margin-top:18px"><button {{ '' if keys.openai or keys.gemini else 'disabled' }}>Adayları üret</button></div>
+  </form>
+
+  <form class="card" id="yukle" method="post" action="/yukle" enctype="multipart/form-data" data-busy="Yükleniyor…">
+    <div class="card-head"><h2>Kendi tasarımımı yükle</h2><span class="step">AI'siz</span></div>
+    <p class="muted" style="margin-top:0">Canva / Illustrator çıktın: siyah = metal, beyaz ya da şeffaf = boşluk. PNG veya JPG, en az 1500 px önerilir.</p>
+    <label><span class="l">Ürün tipi <small>(seç: saat tipi göbek + mekanizma deliği ve akrep-yelkovan ekler)</small></span></label>
+    <div class="chips" style="margin-bottom:16px">
+      {% for key, label in product_types.items() %}
+      <label class="chip"><input type="radio" name="product_type" value="{{ key }}" required><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    <label><span class="l">Dosya</span><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required></label>
+    <label style="margin-top:14px"><span class="l">Tasarım adı</span><input type="text" name="name" placeholder="ör. Dağ silueti"></label>
+    <label style="margin-top:14px"><span class="l">Kısa not (listing metnine ipucu)</span><input type="text" name="brief" placeholder="ör. three mountain peaks with pine trees, rustic cabin style"></label>
+    <h3>Satış boyları</h3>
+    {{ size_editor(settings.sizes_in, None, ocr_ready, ocr_hint) }}
+    <div style="margin-top:18px"><button>Yükle</button></div>
+  </form>
+
+  <form class="card" id="portre" method="post" action="/portre" enctype="multipart/form-data" data-busy="Portre adayları çiziliyor… (20-90 sn)">
+    <div class="card-head"><h2>Özel portre (fotoğraftan)</h2><span class="step">kişiye özel</span></div>
+    <p class="muted" style="margin-top:0">İnsan, kedi, köpek… Fotoğraftan dolu silüet portre çizilir, altına isim plakası eklenir. İsmi kod yazar; sipariş gelince değiştirirsin.</p>
+    <label><span class="l">Fotoğraf</span><input type="file" name="file" accept="image/*" required></label>
+    <label style="margin-top:14px"><span class="l">Plakadaki yazı</span><input type="text" name="text" maxlength="60" value="Custom Text"></label>
+    <label style="margin-top:14px"><span class="l">Not (isteğe bağlı)</span><input type="text" name="note" placeholder="ör. sadece yüzler; gözlükleri koru"></label>
+    <div class="row" style="margin-top:14px">
+      <label><span class="l">Kadraj</span><select name="aspect"><option value="dikey">Dikey (tek kişi ya da hayvan)</option><option value="kare">Kare</option><option value="yatay">Yatay (iki kişi ve üstü)</option></select></label>
+      <label style="flex:0 0 120px"><span class="l">Aday sayısı</span><select name="n"><option>1</option><option>2</option><option selected>3</option><option>4</option></select></label>
+    </div>
+    <input type="hidden" name="provider" value="gemini">
+    <label style="margin-top:14px"><span class="l">Tasarım adı (isteğe bağlı)</span><input type="text" name="name" placeholder="ör. Kedi portresi (listing)"></label>
+    <h3>Satış boyları</h3>
+    {{ size_editor(settings.sizes_in, None, ocr_ready, ocr_hint) }}
+    <div style="margin-top:18px"><button {{ '' if keys.gemini else 'disabled' }}>Portre adaylarını çiz (Gemini)</button>{% if not keys.gemini %} <small>Gemini anahtarı gerekiyor.</small>{% endif %}</div>
+  </form>
+</div>
+{% endblock %}

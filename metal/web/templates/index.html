@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Tasarımlar{% endblock %}
+{% block content %}
+<div class="card-head" style="margin-bottom:20px">
+  <div>
+    <h1>Tasarımlar</h1>
+    <p class="lead" style="margin:0">Her tasarım tek listing'e gider: adaylar → kontrol → mockup → listing → kit.</p>
+  </div>
+  <a class="btn" href="/yeni">+ Yeni tasarım</a>
+</div>
+{% if designs %}
+<div class="designs">
+  {% for d in designs %}
+  <a class="dcard" href="/t/{{ d.id }}">
+    <div class="img" {% if d._thumb %}style="background-image:url('/f/{{ d.id }}/{{ d._thumb }}')"{% endif %}></div>
+    <div class="meta">
+      <b title="{{ d.name }}">{{ d.name }}</b>
+      <div class="row" style="gap:6px;align-items:center">
+        {% if d.sku %}<span class="tag sku">{{ d.sku }}</span>{% endif %}
+        <span class="tag">{{ product_types[d.product_type] }}</span>
+        <span class="tag {{ 'ok' if d._stage == 'kit' }}">{{ stages[d._stage] }}</span>
+        {% if d.check and not d.check.ok %}<span class="tag HATA">kontrol</span>{% endif %}
+      </div>
+      <small>{{ d.created[:16].replace('T', ' ') }}</small>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card empty">
+  <h2>Henüz tasarım yok</h2>
+  <p>AI'ye tarif ederek başla ya da kendi tasarımını yükle.</p>
+  <a class="btn" href="/yeni">Yeni tasarım</a>
+</div>
+{% endif %}
+{% endblock %}
