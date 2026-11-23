@@ -46,7 +46,8 @@ Kapatmak için Terminal / siyah pencereyi kapat. Panelin adresi: http://127.0.0.
    listing'de hiç geçmez; AI ürün bilgisi uydurmaz.
 3. **Ayarlar → Kesim eşikleri:** en ince köprü, en küçük delik, en dar boşluk. Kesimi yapan atölyeye sor.
 4. **Ayarlar → SKU:** kendi ön ekin ve ilk numaran.
-5. **Odalar:** boş duvarlı oda fotoğrafları yükle ya da ürettir. ChatGPT için hazır liste:
+5. **Odalar:** program 70 hazır oda ile gelir (AI ile üretilmiş). Aynı odalar bu programı kullanan herkeste var;
+   mağazan farklı görünsün diye kendi odalarını da yükle ya da ürettir. ChatGPT için hazır liste:
    [docs/oda-promptu.md](docs/oda-promptu.md)
 6. **Ayarlar → Hazır kartlarım (isteğe bağlı):** her listing'e eklenecek kendi görsellerin (montaj, kargo, gümrük).
 

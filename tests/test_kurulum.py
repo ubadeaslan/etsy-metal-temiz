@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from metal import __main__ as starter
-from metal import config, hat, listing, sizes, store
+from metal import config, hat, listing, rooms, sizes, store
 from metal.web import app as web
 from tests import ornek
 
@@ -52,6 +52,41 @@ def test_ready_cards_are_the_shops_own():
     for bad in ("baska", "..%2fayarlar"):
         res = client.post(f"/ayarlar/kart/{bad}", files={"file": ("k.png", b"x", "image/png")}, follow_redirects=False)
         assert res.status_code == 404 or "err=" in res.headers["location"]
+
+
+def test_fresh_install_starts_with_the_rooms_and_keeps_its_own(tmp_path, monkeypatch):
+    from PIL import Image
+
+    starters = tmp_path / "hazir"
+    starters.mkdir()
+    for name in ("oda-01", "oda-02"):
+        Image.new("RGB", (300, 200), (220, 215, 205)).save(starters / f"{name}.jpg")
+    monkeypatch.setattr(config, "STARTER_ROOMS", starters)
+    with TestClient(web.app, base_url=BASE) as started:  # the panel starts: first run
+        assert [r["id"] for r in rooms.list_rooms()] == ["oda-01", "oda-02"]
+        assert {r["source"] for r in rooms.list_rooms()} == {"ai"}  # AI pictures are marked as AI pictures
+        assert started.get("/oda/oda-01.jpg").status_code == 200
+        rooms.set_box("oda-02", [0.1, 0.1, 0.6, 0.6])
+        started.post("/odalar/oda-01/sil")
+    with TestClient(web.app, base_url=BASE) as again:  # later starts leave the library as its owner left it
+        assert [r["id"] for r in rooms.list_rooms()] == ["oda-02"]
+        assert "hazır odalarını ekle (1)" in again.get("/odalar").text
+        again.post("/odalar/hazir")
+        assert [r["id"] for r in rooms.list_rooms()] == ["oda-02", "oda-01"]
+        assert rooms.get("oda-02")["box"] == [0.1, 0.1, 0.6, 0.6]
+        assert "hazır odalarını ekle" not in again.get("/odalar").text
+    assert len(list(starters.iterdir())) == 2  # deleting a room never touches the program's own files
+
+
+def test_starter_rooms_are_plain_pictures():
+    from PIL import Image
+
+    files = sorted(config.STARTER_ROOMS.iterdir())
+    assert [f.name for f in files] == [f"oda-{i:02d}.jpg" for i in range(1, 71)]
+    for f in files:
+        with Image.open(f) as img:
+            assert img.size == (1536, 1024) and not img.getexif(), f.name
+            assert not set(img.info) - {"jfif", "jfif_version", "jfif_unit", "jfif_density", "dpi"}, f.name
 
 
 def test_settings_keep_the_shops_own_choices():

@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
@@ -21,7 +22,15 @@ from .. import sizes as boylar
 from ..providers import usage
 
 HERE = Path(__file__).resolve().parent
-app = FastAPI(title="Etsy Metal Paneli", docs_url=None, redoc_url=None)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    rooms.first_run()
+    yield
+
+
+app = FastAPI(title="Etsy Metal Paneli", docs_url=None, redoc_url=None, lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
 LOCAL_HOSTS = {"127.0.0.1", "localhost"}
@@ -129,7 +138,8 @@ def design_page(request: Request, design_id: str):
 
 @app.get("/odalar", response_class=HTMLResponse)
 def rooms_page(request: Request):
-    return templates.TemplateResponse(request, "odalar.html", _ctx(request, rooms=rooms.list_rooms(), presets=rooms.ROOM_PRESETS))
+    return templates.TemplateResponse(request, "odalar.html", _ctx(request, rooms=rooms.list_rooms(), presets=rooms.ROOM_PRESETS,
+                                                                missing=len(rooms.missing_starters())))
 
 
 @app.get("/ayarlar", response_class=HTMLResponse)
@@ -576,6 +586,11 @@ def room_generate(preset: str = Form(...), wall_note: str = Form(""), provider: 
         return _go("/odalar", err=str(exc))
     rooms.add(images[0], "ai", name or preset, prompt=prompt, provider=info["provider"], model=info["model"])
     return _go("/odalar", ok="AI odası eklendi — yerleşim kutusunu kontrol et.")
+
+
+@app.post("/odalar/hazir")
+def room_starters():
+    return _go("/odalar", ok=f"{rooms.add_starters()} hazır oda eklendi.")
 
 
 @app.post("/odalar/{room_id}/kutu")

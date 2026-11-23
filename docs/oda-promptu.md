@@ -1,6 +1,7 @@
 # ChatGPT ile oda fotoğrafları (60 oda)
 
-Renk görselleri bir oda fotoğrafına asılır. Boş duvarlı odaları ChatGPT'ye çizdirip panele yükleyebilirsin
+Renk görselleri bir oda fotoğrafına asılır. Program 70 hazır oda ile gelir; mağazan farklı görünsün diye kendi
+odalarını da ChatGPT'ye çizdirip panele yükleyebilirsin
 (panelde Odalar → AI ile oda üret de var; o, API bütçenden harcar).
 
 Kullanım:

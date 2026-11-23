@@ -34,6 +34,9 @@
   </form>
 </div>
 
+{% if missing %}
+<form method="post" action="/odalar/hazir" data-busy="Odalar ekleniyor…" style="margin-bottom:18px"><button class="ghost small">Programın hazır odalarını ekle ({{ missing }})</button> <small>Kütüphanende olmayanlar eklenir; kendi odaların değişmez.</small></form>
+{% endif %}
 {% if rooms %}
 <div class="rooms">
   {% for room in rooms %}

@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import secrets
+import shutil
 from datetime import datetime
 
 from PIL import Image
@@ -69,6 +70,38 @@ def add(image_bytes: bytes, source: str, name: str, prompt: str = "", provider: 
     reg["rooms"].append(room)
     _save(reg)
     return room
+
+
+def missing_starters() -> list[str]:
+    """The program's own rooms that this install's library does not have (never added, or deleted)."""
+    have = {r["id"] for r in list_rooms()}
+    return [p.stem for p in sorted(config.STARTER_ROOMS.glob("*.jpg")) if p.stem not in have]
+
+
+def add_starters() -> int:
+    """Copy the program's rooms (AI-drawn empty walls) into this install's own library, where they can be
+    moved, reset or deleted like any other room."""
+    names = missing_starters()
+    if not names:
+        return 0
+    config.ROOMS.mkdir(parents=True, exist_ok=True)
+    reg = _registry()
+    for name in names:
+        shutil.copyfile(config.STARTER_ROOMS / f"{name}.jpg", config.ROOMS / f"{name}.jpg")
+        with Image.open(config.ROOMS / f"{name}.jpg") as img:
+            size = list(img.size)
+        reg["rooms"].append({
+            "id": name, "file": f"{name}.jpg", "name": name, "source": "ai", "box": list(DEFAULT_BOX),
+            "prompt": "", "provider": "", "model": "", "created": datetime.now().isoformat(timespec="seconds"), "size": size,
+        })
+    _save(reg)
+    return len(names)
+
+
+def first_run() -> None:
+    """A fresh install starts with the program's rooms; a library that exists, even emptied, is left alone."""
+    if not (config.ROOMS / REGISTRY).exists():
+        add_starters()
 
 
 def set_box(room_id: str, box: list[float]) -> None:

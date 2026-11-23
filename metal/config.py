@@ -21,6 +21,7 @@ USAGE_FILE = WORK / "harcama.jsonl"
 ENV_FILE = ROOT / ".env"
 ASSETS = Path(__file__).resolve().parent / "assets"
 FONTS = ASSETS / "fonts"
+STARTER_ROOMS = ASSETS / "odalar"  # the rooms every install starts with
 READY_CARDS = WORK / "kartlar"  # the shop's own finished images (Ayarlar), added to its listings
 
 KEY_NAMES = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY"}

@@ -10,6 +10,8 @@ başına satılamaz. Lisans metinleri `metal/assets/fonts/` klasöründe.
 | Cormorant Garamond | https://github.com/google/fonts/tree/main/ofl/cormorantgaramond | `OFL-CormorantGaramond.txt` | Bilgi kartı başlığı |
 | Montserrat | https://github.com/google/fonts/tree/main/ofl/montserrat | `OFL-Montserrat.txt` | Bilgi kartı tablosu |
 
-Düz duvarlar, metal görünümü ve kartlar kodla çizilir; stok görsel yoktur. Panele yüklediğin ya da AI'ye
+Düz duvarlar, metal görünümü ve kartlar kodla çizilir; stok görsel yoktur. `metal/assets/odalar/` içindeki 70
+oda fotoğrafı ChatGPT ile üretilmiştir (AI); listing görselinde arka plan olarak kullanılır ve panelde "AI" olarak
+işaretlidir. Panele yüklediğin ya da AI'ye
 ürettirdiğin oda fotoğrafları, tasarımlar ve hazır kartlar senindir; haklarından sen sorumlusun (başkasının
 fotoğrafını ya da tasarımını yükleme).
